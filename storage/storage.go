@@ -19,6 +19,25 @@ type File struct {
 	filename string
 }
 
+func (f *File) SafeRead() string {
+	f.RLock()
+	res, err := os.ReadFile(f.filename)
+	if err != nil {
+		log.Print(err)
+	}
+	f.RUnlock()
+	return string(res)
+}
+
+func (f *File) SafeWrite(value string) {
+	f.Lock()
+	err := os.WriteFile(f.filename, []byte(value), 0666)
+	if err != nil {
+		log.Print(err)
+	}
+	f.Unlock()
+}
+
 // Stores request timestamps in array and file, safe for concurrent use
 type PersistentCounter struct {
 	counter Counter
@@ -54,11 +73,7 @@ func (c *PersistentCounter) Count() int {
 
 	// Service might have been restarted
 	log.Printf("Loading backup from file")
-	b, err := os.ReadFile(c.file.filename)
-	if err != nil {
-		log.Print(err)
-	}
-	timestampStrings := strings.Split(string(b), ",")
+	timestampStrings := strings.Split(c.file.SafeRead(), ",")
 	timestamps := []int64{}
 
 	for i := len(timestampStrings) - 1; i >= 0; i-- {
@@ -91,19 +106,12 @@ func (c *PersistentCounter) DumpToFile() {
 	}
 	c.counter.RUnlock()
 
-	err := os.WriteFile(c.file.filename, []byte(strings.Join(timestampStrings, ",")), 0666)
-	if err != nil {
-		log.Print(err)
-	}
+	c.file.SafeWrite(strings.Join(timestampStrings, ","))
 }
 
 // Clean deletes obsolete timestamps from backup file
 func (c *PersistentCounter) Clean() {
-	b, err := os.ReadFile(c.file.filename)
-	if err != nil {
-		log.Print(err)
-	}
-	timestampStrings := strings.Split(string(b), ",")
+	timestampStrings := strings.Split(c.file.SafeRead(), ",")
 	freshTimestampStrings := []string{}
 	lastMinute := time.Now().Add(-1 * time.Minute).Unix()
 
@@ -119,8 +127,5 @@ func (c *PersistentCounter) Clean() {
 			break
 		}
 	}
-	err = os.WriteFile(c.file.filename, []byte(strings.Join(freshTimestampStrings, ",")), 0666)
-	if err != nil {
-		log.Print(err)
-	}
+	c.file.SafeWrite(strings.Join(freshTimestampStrings, ","))
 }
