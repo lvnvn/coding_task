@@ -44,7 +44,7 @@ func TestCounter(t *testing.T) {
 
 	time.Sleep(20 * time.Second)
 	for i := 0; i < 3; i++ {
-		resp, _ = testClient.Get(testServer.URL)
+		testClient.Get(testServer.URL)
 	}
 	time.Sleep(45 * time.Second)
 	resp, _ = testClient.Get(testServer.URL)
@@ -60,7 +60,7 @@ func TestCounterAfterRestart(t *testing.T) {
 	var resp *http.Response
 
 	for i := 0; i < 5; i++ {
-		resp, _ = testClient.Get(testServer.URL)
+		testClient.Get(testServer.URL)
 	}
 
 	testServer.Close()
