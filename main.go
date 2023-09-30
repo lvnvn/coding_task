@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"task/storage"
@@ -12,18 +14,27 @@ import (
 type App struct {
 	counter *storage.PersistentCounter
 	queue   chan int64
+	debug   bool
 }
 
 func initApp() *App {
+	debug, err := strconv.ParseBool(os.Getenv("DEBUG"))
+	if err != nil {
+		debug = false
+	}
+	log.Printf("Initializing app, debug = %t", debug)
 	return &App{
 		counter: storage.Init("backup"),
 		queue:   make(chan int64, 1000),
+		debug:   debug,
 	}
 }
 
 func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
 	timestamp := time.Now().Unix()
-	log.Printf("Recieved request at %d", timestamp)
+	if app.debug {
+		log.Printf("Recieved request at %d", timestamp)
+	}
 	fmt.Fprintf(w, "Request count in the last minute: %d\n", app.counter.Count())
 	app.counter.Add(timestamp)
 	app.queue <- timestamp

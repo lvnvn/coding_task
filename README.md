@@ -31,3 +31,7 @@ Request count in the last minute: 1
 docker build -t coding_task .
 docker run -p 8080:8080 --rm coding_task
 ```
+in debug mode:
+```bash
+docker run -p 8080:8080 -e DEBUG=true --rm coding_task
+```

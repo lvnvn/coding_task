@@ -1,3 +1,5 @@
+ARG DEBUG=false
+
 # build
 FROM golang:1.21.1-alpine3.18 AS build-env
 ADD . /src
