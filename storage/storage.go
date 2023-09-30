@@ -34,15 +34,6 @@ func (f *File) SafeRead() (string, error) {
 	return string(res), nil
 }
 
-func (f *File) SafeWrite(value string) {
-	f.Lock()
-	err := os.WriteFile(f.filename, []byte(value), 0666)
-	if err != nil {
-		log.Print(err)
-	}
-	f.Unlock()
-}
-
 func (f *File) SafeAppend(value int64) {
 	f.Lock()
 	defer f.Unlock()
@@ -135,6 +126,9 @@ func (c *PersistentCounter) Clean() {
 	res, err := os.ReadFile(c.file.filename)
 	if err != nil {
 		log.Print(err)
+	}
+	backup := string(res)
+	if backup == "" {
 		return
 	}
 	timestampStrings := strings.Split(strings.Trim(backup, ","), ",")
