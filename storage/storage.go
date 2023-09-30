@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -19,14 +20,17 @@ type File struct {
 	filename string
 }
 
-func (f *File) SafeRead() string {
+func (f *File) SafeRead() (string, error) {
 	f.RLock()
+	defer f.RUnlock()
 	res, err := os.ReadFile(f.filename)
 	if err != nil {
-		log.Print(err)
+		return "", err
 	}
-	f.RUnlock()
-	return string(res)
+	if string(res) == "" {
+		return "", errors.New("Backup file is empty")
+	}
+	return string(res), nil
 }
 
 func (f *File) SafeWrite(value string) {
@@ -73,7 +77,12 @@ func (c *PersistentCounter) Count() int {
 
 	// Service might have been restarted
 	log.Printf("Loading backup from file")
-	timestampStrings := strings.Split(c.file.SafeRead(), ",")
+	backup, err := c.file.SafeRead()
+	if err != nil {
+		log.Print(err)
+		return count
+	}
+	timestampStrings := strings.Split(backup, ",")
 	timestamps := []int64{}
 
 	for i := len(timestampStrings) - 1; i >= 0; i-- {
@@ -111,7 +120,12 @@ func (c *PersistentCounter) DumpToFile() {
 
 // Clean deletes obsolete timestamps from backup file
 func (c *PersistentCounter) Clean() {
-	timestampStrings := strings.Split(c.file.SafeRead(), ",")
+	backup, err := c.file.SafeRead()
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	timestampStrings := strings.Split(backup, ",")
 	freshTimestampStrings := []string{}
 	lastMinute := time.Now().Add(-1 * time.Minute).Unix()
 
