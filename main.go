@@ -17,14 +17,14 @@ type App struct {
 	debug   bool
 }
 
-func initApp() *App {
+func initApp(filename string) *App {
 	debug, err := strconv.ParseBool(os.Getenv("DEBUG"))
 	if err != nil {
 		debug = false
 	}
 	log.Printf("Initializing app, debug = %t", debug)
 	return &App{
-		counter: storage.Init("backup"),
+		counter: storage.Init(filename),
 		queue:   make(chan int64, 1000),
 		debug:   debug,
 	}
@@ -60,7 +60,7 @@ func (app *App) runCleaning() {
 }
 
 func main() {
-	app := initApp()
+	app := initApp("backup")
 	app.runPersisting()
 	app.runCleaning()
 

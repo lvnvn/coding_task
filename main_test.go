@@ -24,13 +24,13 @@ func checkRequestsCount(t *testing.T, resp *http.Response, count int) {
 
 // Setup and Teardown for each test
 func clear() {
-	os.Remove("backup")
+	os.Remove("backup_test")
 }
 
 func TestSingleRequest(t *testing.T) {
 	clear()
 	defer clear()
-	testServer := httptest.NewServer(http.HandlerFunc(initApp().requestsCounter))
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
 	testClient := testServer.Client()
 
 	resp, _ := testClient.Get(testServer.URL)
@@ -43,7 +43,7 @@ func TestSingleRequest(t *testing.T) {
 func TestCounter(t *testing.T) {
 	clear()
 	defer clear()
-	testServer := httptest.NewServer(http.HandlerFunc(initApp().requestsCounter))
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
 	testClient := testServer.Client()
 	var resp *http.Response
 
@@ -64,7 +64,7 @@ func TestCounter(t *testing.T) {
 func TestCounterAfterRestart(t *testing.T) {
 	clear()
 	defer clear()
-	app := initApp()
+	app := initApp("backup_test")
 	app.runPersisting()
 	app.runCleaning()
 	testServer := httptest.NewServer(http.HandlerFunc(app.requestsCounter))
@@ -76,7 +76,7 @@ func TestCounterAfterRestart(t *testing.T) {
 	}
 
 	testServer.Close()
-	restartedTestServer := httptest.NewServer(http.HandlerFunc(initApp().requestsCounter))
+	restartedTestServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
 	defer restartedTestServer.Close()
 	restartedTestClient := testServer.Client()
 
