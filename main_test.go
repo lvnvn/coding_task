@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 )
@@ -21,7 +22,14 @@ func checkRequestsCount(t *testing.T, resp *http.Response, count int) {
 	}
 }
 
+// Setup and Teardown for each test
+func clear() {
+	os.Remove("backup")
+}
+
 func TestSingleRequest(t *testing.T) {
+	clear()
+	defer clear()
 	testServer := httptest.NewServer(http.HandlerFunc(initApp().requestsCounter))
 	testClient := testServer.Client()
 
@@ -33,6 +41,8 @@ func TestSingleRequest(t *testing.T) {
 }
 
 func TestCounter(t *testing.T) {
+	clear()
+	defer clear()
 	testServer := httptest.NewServer(http.HandlerFunc(initApp().requestsCounter))
 	testClient := testServer.Client()
 	var resp *http.Response
@@ -52,6 +62,8 @@ func TestCounter(t *testing.T) {
 }
 
 func TestCounterAfterRestart(t *testing.T) {
+	clear()
+	defer clear()
 	app := initApp()
 	app.runPersisting()
 	app.runCleaning()

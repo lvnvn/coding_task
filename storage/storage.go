@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -40,6 +41,20 @@ func (f *File) SafeWrite(value string) {
 		log.Print(err)
 	}
 	f.Unlock()
+}
+
+func (f *File) SafeAppend(value int64) {
+	f.Lock()
+	defer f.Unlock()
+	file, err := os.OpenFile(f.filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	defer file.Close()
+	if _, err := file.WriteString(fmt.Sprintf(",%d", value)); err != nil {
+		log.Print(err)
+	}
 }
 
 // Stores request timestamps in array and file, safe for concurrent use
@@ -82,13 +97,14 @@ func (c *PersistentCounter) Count() int {
 		log.Print(err)
 		return count
 	}
-	timestampStrings := strings.Split(backup, ",")
+	timestampStrings := strings.Split(strings.Trim(backup, ","), ",")
 	timestamps := []int64{}
 
 	for i := len(timestampStrings) - 1; i >= 0; i-- {
 		ts, err := strconv.ParseInt(timestampStrings[i], 10, 64)
 		if err != nil {
 			log.Print(err)
+			continue
 		}
 		if ts >= lastMinute {
 			count += 1
@@ -107,25 +123,21 @@ func (c *PersistentCounter) Count() int {
 }
 
 // DumpToFile writes contents of timestamps array to file
-func (c *PersistentCounter) DumpToFile() {
-	c.counter.RLock()
-	timestampStrings := make([]string, len(c.counter.ts))
-	for i, t := range c.counter.ts {
-		timestampStrings[i] = strconv.FormatInt(t, 10)
-	}
-	c.counter.RUnlock()
-
-	c.file.SafeWrite(strings.Join(timestampStrings, ","))
+func (c *PersistentCounter) DumpToFile(value int64) {
+	// Queue for this function is FIFO, so timestamp order is kept without looking up c.counter.ts
+	c.file.SafeAppend(value)
 }
 
 // Clean deletes obsolete timestamps from backup file
 func (c *PersistentCounter) Clean() {
-	backup, err := c.file.SafeRead()
+	c.file.Lock()
+	defer c.file.Unlock()
+	res, err := os.ReadFile(c.file.filename)
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	timestampStrings := strings.Split(backup, ",")
+	timestampStrings := strings.Split(strings.Trim(backup, ","), ",")
 	freshTimestampStrings := []string{}
 	lastMinute := time.Now().Add(-1 * time.Minute).Unix()
 
@@ -133,6 +145,7 @@ func (c *PersistentCounter) Clean() {
 		ts, err := strconv.ParseInt(timestampStrings[i], 10, 64)
 		if err != nil {
 			log.Print(err)
+			continue
 		}
 		if ts >= lastMinute {
 			freshTimestampStrings = append(freshTimestampStrings, strconv.FormatInt(ts, 10))
@@ -141,5 +154,8 @@ func (c *PersistentCounter) Clean() {
 			break
 		}
 	}
-	c.file.SafeWrite(strings.Join(freshTimestampStrings, ","))
+	err = os.WriteFile(c.file.filename, []byte(strings.Join(freshTimestampStrings, ",")), 0666)
+	if err != nil {
+		log.Print(err)
+	}
 }

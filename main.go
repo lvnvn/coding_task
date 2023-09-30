@@ -11,13 +11,13 @@ import (
 
 type App struct {
 	counter *storage.PersistentCounter
-	queue   chan int
+	queue   chan int64
 }
 
 func initApp() *App {
 	return &App{
 		counter: storage.Init("backup"),
-		queue:   make(chan int, 1000),
+		queue:   make(chan int64, 1000),
 	}
 }
 
@@ -26,14 +26,14 @@ func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
 	log.Printf("Recieved request at %d", timestamp)
 	fmt.Fprintf(w, "Request count in the last minute: %d\n", app.counter.Count())
 	app.counter.Add(timestamp)
-	app.queue <- 1
+	app.queue <- timestamp
 }
 
 // Asyncronously persisting data to file on each request
 func (app *App) runPersisting() {
 	go func() {
-		for _ = range app.queue {
-			app.counter.DumpToFile()
+		for value := range app.queue {
+			app.counter.DumpToFile(value)
 		}
 	}()
 }
