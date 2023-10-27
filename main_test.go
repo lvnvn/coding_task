@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -85,4 +86,36 @@ func TestCounterAfterRestart(t *testing.T) {
 
 	resp, _ = restartedTestClient.Get(restartedTestServer.URL)
 	checkRequestsCount(t, resp, 6) // Counting continues correctly after restart
+}
+
+func TestRateLimit(t *testing.T) {
+	clear()
+	defer clear()
+	sleepTimeSeconds := time.Second * 2
+	rateLimit := 5
+
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
+	testClient := testServer.Client()
+
+	timestampBefore := time.Now()
+
+	// Send rateLimit + 1 requests
+	var wg sync.WaitGroup
+	for i := 0; i <= rateLimit; i++ {
+		wg.Add(1)
+		go func() {
+			testClient.Get(testServer.URL)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	timestampAfter := time.Now()
+
+	// Expected time = waiting for previous request (sleepTimeSeconds) + current request (sleepTimeSeconds)
+	expected := sleepTimeSeconds * 2
+
+	if timestampAfter.Sub(timestampBefore) < expected {
+		t.Errorf("6th request wasn't rate limited")
+	}
 }

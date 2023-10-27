@@ -12,9 +12,10 @@ import (
 )
 
 type App struct {
-	counter *storage.PersistentCounter
-	queue   chan int64
-	debug   bool
+	counter        *storage.PersistentCounter
+	queue          chan int64
+	debug          bool
+	rateLimitQueue chan int
 }
 
 func initApp(filename string) *App {
@@ -24,13 +25,15 @@ func initApp(filename string) *App {
 	}
 	log.Printf("Initializing app, debug = %t", debug)
 	return &App{
-		counter: storage.Init(filename),
-		queue:   make(chan int64, 1000),
-		debug:   debug,
+		counter:        storage.Init(filename),
+		queue:          make(chan int64, 1000),
+		debug:          debug,
+		rateLimitQueue: make(chan int, 5), // Proceed no more than 5 requests in parallel
 	}
 }
 
 func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
+	app.rateLimitQueue <- 1
 	timestamp := time.Now().Unix()
 	if app.debug {
 		log.Printf("Recieved request at %d", timestamp)
@@ -38,6 +41,8 @@ func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "Request count in the last minute: %d\n", app.counter.Count())
 	app.counter.Add(timestamp)
 	app.queue <- timestamp
+	time.Sleep(2 * time.Second)
+	<-app.rateLimitQueue
 }
 
 // Asyncronously persisting data to file on each request
