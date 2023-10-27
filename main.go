@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"task/storage"
@@ -34,14 +35,25 @@ func initApp(filename string) *App {
 
 func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
 	app.rateLimitQueue <- 1
-	timestamp := time.Now().Unix()
-	if app.debug {
-		log.Printf("Recieved request at %d", timestamp)
-	}
-	fmt.Fprintf(w, "Request count in the last minute: %d\n", app.counter.Count())
-	app.counter.Add(timestamp)
-	app.queue <- timestamp
-	time.Sleep(2 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		timestamp := time.Now().Unix()
+		if app.debug {
+			log.Printf("Recieved request at %d", timestamp)
+		}
+		fmt.Fprintf(w, "Request count in the last minute: %d\n", app.counter.Count())
+		app.counter.Add(timestamp)
+		app.queue <- timestamp
+		wg.Done()
+	}()
+	go func() {
+		time.Sleep(2 * time.Second)
+		wg.Done()
+	}()
+	wg.Wait()
+
 	<-app.rateLimitQueue
 }
 
