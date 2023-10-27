@@ -31,7 +31,7 @@ func clear() {
 func TestSingleRequest(t *testing.T) {
 	clear()
 	defer clear()
-	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test", 10, time.Millisecond).requestsCounter))
 	testClient := testServer.Client()
 
 	resp, _ := testClient.Get(testServer.URL)
@@ -44,7 +44,7 @@ func TestSingleRequest(t *testing.T) {
 func TestCounter(t *testing.T) {
 	clear()
 	defer clear()
-	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test", 10, time.Millisecond).requestsCounter))
 	testClient := testServer.Client()
 	var resp *http.Response
 
@@ -65,7 +65,7 @@ func TestCounter(t *testing.T) {
 func TestCounterAfterRestart(t *testing.T) {
 	clear()
 	defer clear()
-	app := initApp("backup_test")
+	app := initApp("backup_test", 10, time.Millisecond)
 	app.runPersisting()
 	app.runCleaning()
 	testServer := httptest.NewServer(http.HandlerFunc(app.requestsCounter))
@@ -77,7 +77,7 @@ func TestCounterAfterRestart(t *testing.T) {
 	}
 
 	testServer.Close()
-	restartedTestServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
+	restartedTestServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test", 10, time.Millisecond).requestsCounter))
 	defer restartedTestServer.Close()
 	restartedTestClient := testServer.Client()
 
@@ -94,7 +94,7 @@ func TestRateLimit(t *testing.T) {
 	sleepTimeSeconds := time.Second * 2
 	rateLimit := 5
 
-	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test").requestsCounter))
+	testServer := httptest.NewServer(http.HandlerFunc(initApp("backup_test", rateLimit, sleepTimeSeconds).requestsCounter))
 	testClient := testServer.Client()
 
 	timestampBefore := time.Now()

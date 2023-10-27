@@ -17,9 +17,10 @@ type App struct {
 	queue          chan int64
 	debug          bool
 	rateLimitQueue chan int
+	sleepTime      time.Duration
 }
 
-func initApp(filename string) *App {
+func initApp(filename string, rateLimit int, sleepTime time.Duration) *App {
 	debug, err := strconv.ParseBool(os.Getenv("DEBUG"))
 	if err != nil {
 		debug = false
@@ -29,7 +30,8 @@ func initApp(filename string) *App {
 		counter:        storage.Init(filename),
 		queue:          make(chan int64, 1000),
 		debug:          debug,
-		rateLimitQueue: make(chan int, 5), // Proceed no more than 5 requests in parallel
+		rateLimitQueue: make(chan int, rateLimit), // Proceed no more than n requests in parallel
+		sleepTime:      sleepTime,
 	}
 }
 
@@ -49,7 +51,7 @@ func (app *App) requestsCounter(w http.ResponseWriter, req *http.Request) {
 		wg.Done()
 	}()
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(app.sleepTime)
 		wg.Done()
 	}()
 	wg.Wait()
@@ -77,7 +79,7 @@ func (app *App) runCleaning() {
 }
 
 func main() {
-	app := initApp("backup")
+	app := initApp("backup", 5, time.Second*2)
 	app.runPersisting()
 	app.runCleaning()
 
